@@ -37,6 +37,7 @@
     "@openrouter/ai-sdk-provider": "^0.0.5",
     "@portkey-ai/gateway": "^1.4.0",
     "agent-twitter-client-taelin-fork": "^0.0.26",
+    "ai": "^4.0.22",
     "apify-client": "^2.9.6",
     "gateway": "^1.0.0",
     "googleapis": "^144.0.0",

@@ -10,7 +10,8 @@ import os from 'os';
 import path from 'path';
 import { OpenAI } from "openai";
 import { Anthropic } from '@anthropic-ai/sdk';
-import { OpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { streamText, generateText } from "ai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { encode } from "gpt-tokenizer/esm/model/davinci-codex"; // tokenizer
 import { Scraper } from 'agent-twitter-client-taelin-fork';
@@ -244,7 +245,7 @@ export function geminiChat(clientClass, use_model) {
 }
 
 // Factory function to create a stateful OpenRouter chat
-export function openRouterChat(clientClass) {
+export function openRouterChat(_unusedClientClass, MODEL) {
   const messages = [];
   let extendFunction = null;
 
@@ -253,14 +254,14 @@ export function openRouterChat(clientClass) {
       return { messages };
     }
 
+    model = MODEL || model;
+    if (model.startsWith('openrouter:'))
+      model = model.slice('openrouter:'.length);
     model = MODELS[model] || model;
-    const openai = new OpenAI({
-      baseURL: "https://openrouter.ai/api/v1",
-      apiKey: await getToken('openrouter'),
-      defaultHeaders: {
-        "HTTP-Referer": "https://github.com/OpenRouterTeam/openrouter-examples",
-      },
-    });
+    if (model.startsWith('openrouter:'))
+      model = model.slice('openrouter:'.length);
+    const openrouter = createOpenRouter({ apiKey: await getToken('openrouter') });
+    const modelParams = openrouter(model);
 
     if (messages.length === 0 && system) {
       messages.push({ role: "system", content: system });
@@ -274,24 +275,23 @@ export function openRouterChat(clientClass) {
 
     const params = {
       messages: messagesCopy,
-      model,
+      model: modelParams,
+      maxTokens: max_tokens,
       temperature,
-      max_tokens,
-      stream,
     };
 
+
     let result = "";
-    const response = await openai.chat.completions.create(params);
     if (stream) {
-      for await (const chunk of response) {
-        const text = chunk.choices[0]?.delta?.content || "";
-        process.stdout.write(text);
-        result += text;
+      const response = streamText(params);
+      for await (const chunk of response.textStream) {
+        process.stdout.write(chunk);
+        result += chunk;
       }
     } else {
-      const text = response.choices[0]?.message?.content || "";
-      //process.stdout.write(text);
-      result = text;
+      const response = await generateText(params);
+      result = response.text;
+      //process.stdout.write(result);
     }
 
     messages.push({ role: 'assistant', content: await shorten(result) });
@@ -586,13 +586,15 @@ export function chat(model) {
   } else if (model.startsWith('claude')) {
     return anthropicChat(Anthropic, model);
   } else if (model.startsWith('meta')) {
-    return openRouterChat(OpenRouter, model);
   //} else if (model.startsWith('Meta')) {
     //return sambanovaChat(OpenAI, model);
   //} else if (model === "DeepSeek-R1-Distill-Llama-70B") {
     //return sambanovaChat(OpenAI, model);
+    return openRouterChat(createOpenRouter, model);
   } else if (model.startsWith('gemini')) {
     return geminiChat(GoogleGenerativeAI, model);
+  } else if (model.startsWith('openrouter:')) {
+    return openRouterChat(createOpenRouter, model.slice('openrouter:'.length));
   } else {
     throw new Error(`Unsupported model: ${model}`);
   }
