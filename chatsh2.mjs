@@ -135,6 +135,7 @@ remove file_1.txt
 - Do NOT add any explanatory text or comments before or after XML commands.
 - Do NOT output anything other XML Commands to complete a task on "command mode".
 - We will EDIT your response to omit <WRITE/> tags, but you should NEVER omit them yourself.
+- Do NOT end a <WRITE> block with a <FILE> ALWAYS end it with </WRITE>
 
 # Context:
 
@@ -205,7 +206,7 @@ const executeUserCommand = async (input) => {
 
 const parseAICommands = (text) => {
   const commands = [];
-  const regex = /<([A-Z]+)([^>]*)>([\s\S]*?)<\/\1>|<([A-Z]+)([^>]*)\/>/g;
+  const regex = /(?<!`)<([A-Z]+)([^>]*)>([\s\S]*?)<\/\1>|<([A-Z]+)([^>]*)\/>/g;
 
   let match;
   while ((match = regex.exec(text)) !== null) {
