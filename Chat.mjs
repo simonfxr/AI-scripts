@@ -34,8 +34,8 @@ export const MODELS = {
   C: 'claude-3-5-sonnet-20241022',
   c: 'claude-3-5-sonnet-20240620',
 
-  k: 'deepseek-chat',
-  K: 'deepseek-reasoner',
+  k: 'openrouter:deepseek/deepseek-chat',
+  K: 'openrouter:deepseek/deepseek-r1',
 
   //c: 'claude-3-5-sonnet-20240620',
   //C: 'claude-3-5-sonnet-20241022', // TODO: temporarily using the new sonnet instead of opus
