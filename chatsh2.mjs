@@ -206,7 +206,7 @@ const executeUserCommand = async (input) => {
 
 const parseAICommands = (text) => {
   const commands = [];
-  const regex = /(?<!`)<([A-Z]+)([^>]*)>([\s\S]*?)<\/\1>|<([A-Z]+)([^>]*)\/>/g;
+  const regex = /(?<!`)<(WRITE|RUN|SHOW|HIDE|REMOVE)([^>]*)>([\s\S]*?)<\/\1>|<([A-Z]+)([^>]*)\/>/g;
 
   let match;
   while ((match = regex.exec(text)) !== null) {
@@ -261,7 +261,9 @@ const processAIResponse = async (response) => {
           case 'WRITE': {
             if (attrs.path && content != null) {
               attrs.path = path.resolve(attrs.path);
-              fs.writeFileSync(attrs.path, content.trim());
+              const dirPath = path.dirname(attrs.path);
+              fs.mkdirSync(dirPath, { recursive: true });
+              fs.writeFileSync(attrs.path, content.trim() + "\n");
               shownPaths.add(attrs.path);
             } else {
               appendToHistory('ERROR', 'Invalid WRITE command');
@@ -315,6 +317,14 @@ const processAIResponse = async (response) => {
                 console.log(`Removed: ${attrs.path}`);
                 appendToHistory('SYSTEM', `Removed: ${attrs.path}`);
                 shownPaths.delete(attrs.path);
+
+                // Remove empty parent directories
+                let parentDir = path.dirname(attrs.path);
+                if (fs.readdirSync(parentDir).length === 0) {
+                  fs.rmdirSync(parentDir);
+                  console.log(`Removed empty directory: ${parentDir}`);
+                  appendToHistory('SYSTEM', `Removed empty directory: ${parentDir}`);
+                }
               } catch (error) {
                 console.error(`Error removing ${attrs.path}: ${error.message}`);
                 appendToHistory('ERROR', `Error removing ${attrs.path}: ${error.message}`);
