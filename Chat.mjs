@@ -10,8 +10,6 @@ import os from 'os';
 import path from 'path';
 import { OpenAI } from "openai";
 import { Anthropic } from '@anthropic-ai/sdk';
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { streamText, generateText } from "ai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { encode } from "gpt-tokenizer/esm/model/davinci-codex"; // tokenizer
 import { Scraper } from 'agent-twitter-client-taelin-fork';
@@ -249,7 +247,7 @@ export function openRouterChat(_unusedClientClass, MODEL) {
   const messages = [];
   let extendFunction = null;
 
-  async function ask(userMessage, { system, model, temperature = 0.0, max_tokens = 8192, stream = true, shorten = (x => x), extend = null }) {
+  async function ask(userMessage, { system, model, temperature, max_tokens, stream = true, shorten = (x => x), extend = null }) {
     if (userMessage === null) {
       return { messages };
     }
@@ -260,11 +258,20 @@ export function openRouterChat(_unusedClientClass, MODEL) {
     model = MODELS[model] || model;
     if (model.startsWith('openrouter:'))
       model = model.slice('openrouter:'.length);
-    const openrouter = createOpenRouter({ apiKey: await getToken('openrouter') });
-    const modelParams = openrouter(model);
+    const client = new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: await getToken('openrouter'),
+    });
 
+    let default_temp = 0.0;
+    const is_reasoning = model.includes("deepseek-r1");
     if (messages.length === 0 && system) {
-      messages.push({ role: "system", content: system });
+      if (is_reasoning) {
+        messages.push({ role: "user", content: system });
+        default_temp = 1.0;
+      } else {
+        messages.push({ role: "system", content: system });
+      }
     }
 
     let extendedUserMessage = extendFunction ? extendFunction(userMessage) : userMessage;
@@ -275,21 +282,29 @@ export function openRouterChat(_unusedClientClass, MODEL) {
 
     const params = {
       messages: messagesCopy,
-      model: modelParams,
-      maxTokens: max_tokens,
-      temperature,
+      include_reasoning: true,
+      temperature: (temperature !== undefined) ? temperature : default_temp,
+      model,
+      stream,
     };
-
 
     let result = "";
     if (stream) {
-      const response = streamText(params);
-      for await (const chunk of response.textStream) {
-        process.stdout.write(chunk);
-        result += chunk;
+      const response = await client.chat.completions.create(params);
+      for await (const chunk of response) {
+        const delta = chunk.choices[0]?.delta;
+        const text = delta?.content || "";
+        if (text) {
+          process.stdout.write(text);
+          result += text;
+        }
+        const reasoning = delta?.reasoning || delta?.reasoning_content || "";
+        if (reasoning) {
+          process.stdout.write(reasoning);
+        }
       }
     } else {
-      const response = await generateText(params);
+      const response = await client.chat.completions.create(params);
       result = response.text;
       //process.stdout.write(result);
     }
@@ -590,11 +605,11 @@ export function chat(model) {
     //return sambanovaChat(OpenAI, model);
   //} else if (model === "DeepSeek-R1-Distill-Llama-70B") {
     //return sambanovaChat(OpenAI, model);
-    return openRouterChat(createOpenRouter, model);
+    return openRouterChat(undefined, model);
   } else if (model.startsWith('gemini')) {
     return geminiChat(GoogleGenerativeAI, model);
   } else if (model.startsWith('openrouter:')) {
-    return openRouterChat(createOpenRouter, model.slice('openrouter:'.length));
+    return openRouterChat(undefined, model.slice('openrouter:'.length));
   } else {
     throw new Error(`Unsupported model: ${model}`);
   }
