@@ -264,7 +264,10 @@ export function openRouterChat(_unusedClientClass, MODEL) {
     });
 
     let default_temp = 0.0;
-    const is_reasoning = model.includes("deepseek-r1");
+    let reasoning_effort = undefined;
+    const is_oai_oX = model.includes("/o1") || model.includes("/o3");
+    const is_reasoning = is_oai_oX || model.includes("deepseek-r1");
+    if (is_oai_oX) reasoning_effort = "high";
     if (messages.length === 0 && system) {
       if (is_reasoning) {
         messages.push({ role: "user", content: system });
@@ -286,6 +289,7 @@ export function openRouterChat(_unusedClientClass, MODEL) {
       temperature: (temperature !== undefined) ? temperature : default_temp,
       model,
       stream,
+      reasoning_effort,
     };
 
     let result = "";
