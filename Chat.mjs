@@ -29,8 +29,8 @@ export const MODELS = {
 
   // Claude by Anthropic
   cm: 'claude-3-5-haiku-20241022',
-  C: 'claude-3-5-sonnet-20241022',
-  c: 'claude-3-5-sonnet-20240620',
+  C: 'claude-3-7-sonnet-20250219',
+  c: 'claude-3-5-sonnet-20241022',
 
   k: 'openrouter:deepseek/deepseek-chat',
   K: 'openrouter:deepseek/deepseek-r1',
@@ -505,6 +505,7 @@ class GrokChat {
         const loadedCookies = cookieStrings.filter(cookie => cookie !== undefined);
         await this.scraper.setCookies(loadedCookies);
       } catch (err) {
+        console.error("cookies error", err);
         this.cookies = null;
       }
 
